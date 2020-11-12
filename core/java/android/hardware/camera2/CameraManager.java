@@ -2282,12 +2282,12 @@ public final class CameraManager {
             }
         }
 
-        private String[] extractCameraIdListLocked(int deviceId, int devicePolicy) {
-            List<String> cameraIds = new ArrayList<>();
-            boolean exposeAuxCamera = shouldExposeAuxCamera();
+        private String[] extractCameraIdListLocked() {
+            String[] cameraIds = null;
+            boolean exposeAuxCamera = Camera.shouldExposeAuxCamera();
+            int size = exposeAuxCamera ? mDeviceStatus.size() : 2;
             int idCount = 0;
-            for (int i = 0; i < mDeviceStatus.size(); i++) {
-                if(!exposeAuxCamera && (i == 2)) break;
+            for (int i = 0; i < size; i++) {
                 int status = mDeviceStatus.valueAt(i);
                 DeviceCameraInfo info = mDeviceStatus.keyAt(i);
                 if (status == ICameraServiceListener.STATUS_NOT_PRESENT
@@ -2297,7 +2297,16 @@ public final class CameraManager {
                 }
                 cameraIds.add(info.mCameraId);
             }
-            return cameraIds.toArray(new String[0]);
+            cameraIds = new String[idCount];
+            idCount = 0;
+            for (int i = 0; i < size; i++) {
+                int status = mDeviceStatus.valueAt(i);
+                if (status == ICameraServiceListener.STATUS_NOT_PRESENT
+                        || status == ICameraServiceListener.STATUS_ENUMERATING) continue;
+                cameraIds[idCount] = mDeviceStatus.keyAt(i);
+                idCount++;
+            }
+            return cameraIds;
         }
 
         private Set<Set<String>> extractConcurrentCameraIdListLocked(int deviceId,
