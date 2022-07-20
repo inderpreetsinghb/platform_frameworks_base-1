@@ -177,6 +177,7 @@ android_library {
         "jsr330",
         "lottie",
         "LowLightDreamLib",
+        "bcsmartspace-google",
         "motion_tool_lib",
     ],
     manifest: "AndroidManifest.xml",
