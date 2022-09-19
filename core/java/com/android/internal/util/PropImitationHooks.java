@@ -44,6 +44,10 @@ public class PropImitationHooks {
     private static final String PACKAGE_GMS = "com.google.android.gms";
     private static final String PROCESS_GMS_UNSTABLE = PACKAGE_GMS + ".unstable";
 
+    private static final String PACKAGE_NETFLIX = "com.netflix.mediaclient";
+    private static final String sNetflixModel =
+            Resources.getSystem().getString(R.string.config_netflixSpoofModel);
+
     private static volatile boolean sIsGms = false;
     private static volatile boolean sIsFinsky = false;
 
@@ -71,6 +75,9 @@ public class PropImitationHooks {
         } else if (!sStockFp.isEmpty() && packageName.equals(PACKAGE_ARCORE)) {
             dlog("Setting stock fingerprint for: " + packageName);
             setPropValue("FINGERPRINT", sStockFp);
+        } else if (!sNetflixModel.isEmpty() && packageName.equals(PACKAGE_NETFLIX)) {
+            dlog("Setting model to " + sNetflixModel + " for Netflix");
+            setPropValue("MODEL", sNetflixModel);
         }
     }
 
