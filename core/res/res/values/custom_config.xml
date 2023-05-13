@@ -42,4 +42,10 @@
     <string-array name="config_forceEnabledComponents" translatable="false">
     </string-array>
 
+    <!-- Whether to show WiFi/Hotspot standard -->
+    <bool name="config_show_network_standard">true</bool>
+
+    <!-- Whether usage of the proximity sensor during doze is supported -->
+    <bool name="config_doze_proximity_sensor_supported">true</bool>
+
 </resources>
