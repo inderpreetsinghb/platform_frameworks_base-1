@@ -39,8 +39,4 @@
     <!-- Whether usage of the proximity sensor during doze is supported -->
     <java-symbol type="bool" name="config_doze_proximity_sensor_supported" />
 
-    <!-- App lock -->
-    <java-symbol type="string" name="unlock_application" />
-    <java-symbol type="array" name="config_appLockAllowedSystemApps" />
-
 </resources>
