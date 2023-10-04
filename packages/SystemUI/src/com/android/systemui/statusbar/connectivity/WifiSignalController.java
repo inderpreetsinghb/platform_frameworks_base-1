@@ -40,8 +40,10 @@ import com.android.settingslib.SignalIcon.MobileIconGroup;
 import com.android.settingslib.graph.SignalDrawable;
 import com.android.settingslib.mobile.TelephonyIcons;
 import com.android.settingslib.wifi.WifiStatusTracker;
+import com.android.systemui.Dependency;
 import com.android.systemui.R;
 import com.android.systemui.dagger.qualifiers.Background;
+import com.android.systemui.tuner.TunerService;
 
 import java.io.PrintWriter;
 
@@ -60,6 +62,9 @@ public class WifiSignalController extends SignalController<WifiState, IconGroup>
     private final IconGroup mWifi5IconGroup;
     private final IconGroup mWifi6IconGroup;
     private final IconGroup mWifi7IconGroup;
+
+    private static final String KEY_WIFI_STANDARD = "wifi_standard";
+    private boolean mShowWifiStandard = true;
 
     public WifiSignalController(
             Context context,
@@ -141,6 +146,13 @@ public class WifiSignalController extends SignalController<WifiState, IconGroup>
                 AccessibilityContentDescriptions.WIFI_NO_CONNECTION
                 );
 
+        Dependency.get(TunerService.class).addTunable((key, newValue) -> {
+            mShowWifiStandard = TunerService.parseIntegerSwitch(newValue,
+                    context.getResources().getBoolean(
+                    com.android.internal.R.bool.config_show_network_standard));
+            handleStatusUpdated();
+        }, KEY_WIFI_STANDARD);
+
         mCurrentState.iconGroup = mLastState.iconGroup = mDefaultWifiIconGroup;
     }
 
@@ -191,7 +203,8 @@ public class WifiSignalController extends SignalController<WifiState, IconGroup>
                 mCurrentState.enabled, statusIcon, qsIcon,
                 ssidPresent && mCurrentState.activityIn,
                 ssidPresent && mCurrentState.activityOut,
-                wifiDesc, mCurrentState.isTransient, mCurrentState.statusLabel
+                wifiDesc, mCurrentState.isTransient, mCurrentState.statusLabel,
+                mCurrentState.inetCondition > 0 ? mCurrentState.wifiStandard : -1
         );
         callback.setWifiIndicators(wifiIndicators);
     }
@@ -250,21 +263,6 @@ public class WifiSignalController extends SignalController<WifiState, IconGroup>
         return getCurrentIconIdForCarrierWifi();
     }
 
-
-    private void updateIconGroup() {
-	if (mCurrentState.wifiStandard == ScanResult.WIFI_STANDARD_11N) {
-            mCurrentState.iconGroup = mWifi4IconGroup;
-        } else if (mCurrentState.wifiStandard == ScanResult.WIFI_STANDARD_11AC) {
-            mCurrentState.iconGroup = mWifi5IconGroup;
-        } else if (mCurrentState.wifiStandard == ScanResult.WIFI_STANDARD_11AX) {
-            mCurrentState.iconGroup = mWifi6IconGroup;
-        } else if (mCurrentState.wifiStandard == ScanResult.WIFI_STANDARD_11BE) {
-            mCurrentState.iconGroup = mWifi7IconGroup;
-        } else {
-            mCurrentState.iconGroup = mDefaultWifiIconGroup;
-        }
-
-    }
     /**
      * Fetches wifi initial state replacing the initial sticky broadcast.
      */
@@ -317,8 +315,8 @@ public class WifiSignalController extends SignalController<WifiState, IconGroup>
         mCurrentState.statusLabel = mWifiTracker.statusLabel;
         mCurrentState.isCarrierMerged = mWifiTracker.isCarrierMerged;
         mCurrentState.subId = mWifiTracker.subId;
-        mCurrentState.wifiStandard = mWifiTracker.wifiStandard;
-        updateIconGroup();
+        mCurrentState.wifiStandard = mShowWifiStandard ? mWifiTracker.wifiStandard : -1;
+        mCurrentState.iconGroup = mDefaultWifiIconGroup;
 
     }
 

@@ -56,6 +56,7 @@ public class StatusBarSignalPolicy implements SignalCallback,
     private final String mSlotVpn;
     private final String mSlotNoCalling;
     private final String mSlotCallStrength;
+    private final String mSlotRoaming = "roaming";
 
     private final Context mContext;
     private final StatusBarIconController mIconController;
@@ -70,6 +71,8 @@ public class StatusBarSignalPolicy implements SignalCallback,
     private boolean mHideWifi;
     private boolean mHideEthernet;
     private boolean mActivityEnabled;
+    private boolean mHideVpn;
+    private boolean mHideRoaming;
 
     // Track as little state as possible, and only for padding purposes
     private boolean mIsAirplaneMode = false;
@@ -126,7 +129,7 @@ public class StatusBarSignalPolicy implements SignalCallback,
     }
 
     private void updateVpn() {
-        boolean vpnVisible = mSecurityController.isVpnEnabled();
+        boolean vpnVisible = mSecurityController.isVpnEnabled() && !mHideVpn;
         int vpnIconId = currentVpnIconId(mSecurityController.isVpnBranded());
 
         mIconController.setIcon(mSlotVpn, vpnIconId,
@@ -156,13 +159,18 @@ public class StatusBarSignalPolicy implements SignalCallback,
         boolean hideMobile = hideList.contains(mSlotMobile);
         boolean hideWifi = hideList.contains(mSlotWifi);
         boolean hideEthernet = hideList.contains(mSlotEthernet);
+        boolean hideVpn = hideList.contains(mSlotVpn);
+        boolean hideRoaming = hideList.contains(mSlotRoaming);
 
         if (hideAirplane != mHideAirplane || hideMobile != mHideMobile
-                || hideEthernet != mHideEthernet || hideWifi != mHideWifi) {
+                || hideEthernet != mHideEthernet || hideWifi != mHideWifi
+                || hideVpn != mHideVpn || hideRoaming != mHideRoaming) {
             mHideAirplane = hideAirplane;
             mHideMobile = hideMobile;
             mHideEthernet = hideEthernet;
             mHideWifi = hideWifi;
+            mHideVpn = hideVpn;
+            mHideRoaming = hideRoaming;
             // Re-register to get new callbacks.
             mNetworkController.removeCallback(this);
             mNetworkController.addCallback(this);
@@ -195,8 +203,10 @@ public class StatusBarSignalPolicy implements SignalCallback,
             newState.activityIn = in;
             newState.activityOut = out;
             newState.contentDescription = indicators.statusIcon.contentDescription;
+            newState.wifiStandard = indicators.wifiStandard;
             MobileIconState first = getFirstMobileState();
-            newState.signalSpacerVisible = first != null && first.typeId != 0;
+            newState.signalSpacerVisible = (first != null && first.typeId != 0)
+                    || (indicators.wifiStandard >= 4 && indicators.wifiStandard <= 6);
         }
         newState.slot = mSlotWifi;
         newState.airplaneSpacerVisible = mIsAirplaneMode;
@@ -267,7 +277,7 @@ public class StatusBarSignalPolicy implements SignalCallback,
         state.contentDescription = indicators.statusIcon.contentDescription;
         state.typeContentDescription = indicators.typeContentDescription;
         state.showTriangle = indicators.showTriangle;
-        state.roaming = indicators.roaming;
+        state.roaming = indicators.roaming && !mHideRoaming;
         state.activityIn = indicators.activityIn && mActivityEnabled;
         state.activityOut = indicators.activityOut && mActivityEnabled;
         state.volteId = indicators.volteIcon;
@@ -512,6 +522,7 @@ public class StatusBarSignalPolicy implements SignalCallback,
         public boolean noDefaultNetwork;
         public boolean noValidatedNetwork;
         public boolean noNetworksAvailable;
+        public int wifiStandard;
 
         @Override
         public boolean equals(Object o) {
@@ -528,7 +539,8 @@ public class StatusBarSignalPolicy implements SignalCallback,
                     && signalSpacerVisible == that.signalSpacerVisible
                     && noDefaultNetwork == that.noDefaultNetwork
                     && noValidatedNetwork == that.noValidatedNetwork
-                    && noNetworksAvailable == that.noNetworksAvailable;
+                    && noNetworksAvailable == that.noNetworksAvailable
+                    && wifiStandard == that.wifiStandard;
         }
 
         public void copyTo(WifiIconState other) {
@@ -539,6 +551,7 @@ public class StatusBarSignalPolicy implements SignalCallback,
             other.noDefaultNetwork = noDefaultNetwork;
             other.noValidatedNetwork = noValidatedNetwork;
             other.noNetworksAvailable = noNetworksAvailable;
+            other.wifiStandard = wifiStandard;
         }
 
         public WifiIconState copy() {
