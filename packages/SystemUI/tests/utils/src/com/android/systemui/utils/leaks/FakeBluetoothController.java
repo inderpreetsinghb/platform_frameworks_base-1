@@ -72,6 +72,11 @@ public class FakeBluetoothController extends BaseLeakChecker<Callback> implement
     }
 
     @Override
+    public Collection<CachedBluetoothDevice> getDevices() {
+        return null;
+    }
+
+    @Override
     public void setBluetoothEnabled(boolean enabled) {
 
     }

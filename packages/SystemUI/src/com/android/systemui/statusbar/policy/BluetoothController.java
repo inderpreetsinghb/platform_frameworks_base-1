@@ -43,6 +43,7 @@ public interface BluetoothController extends CallbackController<Callback>, Dumpa
     int getMaxConnectionState(CachedBluetoothDevice device);
     int getBondState(CachedBluetoothDevice device);
     List<CachedBluetoothDevice> getConnectedDevices();
+    Collection<CachedBluetoothDevice> getDevices();
 
     int getBatteryLevel();
 
