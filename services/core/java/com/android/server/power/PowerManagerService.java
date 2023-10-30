@@ -976,9 +976,9 @@ public final class PowerManagerService extends SystemService
             return PowerManagerService.nativeSetPowerMode(mode, enabled);
         }
 
-        /** Wrapper for PowerManager.nativeSetParanoidFeature */
-        public void nativeSetParanoidFeature(int featureId, int data) {
-            PowerManagerService.nativeSetParanoidFeature (featureId, data);
+        /** Wrapper for PowerManager.nativeSetMiLahainaFeature */
+        public void nativeSetMiLahainaFeature(int featureId, int data) {
+            PowerManagerService.nativeSetMiLahainaFeature (featureId, data);
         }
 
 
@@ -1174,7 +1174,7 @@ public final class PowerManagerService extends SystemService
     private static native void nativeSetAutoSuspend(boolean enable);
     private static native void nativeSetPowerBoost(int boost, int durationMs);
     private static native boolean nativeSetPowerMode(int mode, boolean enabled);
-    private static native void nativeSetParanoidFeature(int featureId, int data);
+    private static native void nativeSetMiLahainaFeature(int featureId, int data);
     private static native boolean nativeForceSuspend();
 
     public PowerManagerService(Context context) {
@@ -1296,22 +1296,22 @@ public final class PowerManagerService extends SystemService
             mNativeWrapper.nativeInit(this);
             mNativeWrapper.nativeSetAutoSuspend(false);
             mNativeWrapper.nativeSetPowerMode(Mode.INTERACTIVE, true);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_GESTURES, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DOUBLE_TAP, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_V, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_INVERSE_V, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_O, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_M, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_W, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_S, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_ARROW_LEFT, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_ARROW_RIGHT, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_UP, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_RIGHT, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_DOWN, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_LEFT, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_TWO_FINGER_SWIPE, 0);
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_SINGLE_TAP, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_GESTURES, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DOUBLE_TAP, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_V, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_INVERSE_V, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_O, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_M, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_W, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_S, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_ARROW_LEFT, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_ARROW_RIGHT, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_UP, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_RIGHT, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_DOWN, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_LEFT, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_TWO_FINGER_SWIPE, 0);
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_SINGLE_TAP, 0);
             mInjector.invalidateIsInteractiveCaches();
         }
     }
@@ -1686,7 +1686,7 @@ public final class PowerManagerService extends SystemService
                 Settings.System.GESTURES_ENABLED, 1, UserHandle.USER_CURRENT) != 0;
         if (gesturesEnabled != mGesturesEnabled) {
             mGesturesEnabled = gesturesEnabled;
-            mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_GESTURES,
+            mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_GESTURES,
                         mGesturesEnabled ? 1 : 0);
         }
 
@@ -1697,7 +1697,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (doubleTapEnabled != mDoubleTapEnabled) {
                 mDoubleTapEnabled = doubleTapEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DOUBLE_TAP,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DOUBLE_TAP,
                         mDoubleTapEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1709,7 +1709,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (singleTapEnabled != mSingleTapEnabled) {
                 mSingleTapEnabled = singleTapEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_SINGLE_TAP,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_SINGLE_TAP,
                         mSingleTapEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1721,7 +1721,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawVEnabled != mDrawVEnabled) {
                 mDrawVEnabled = drawVEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_V,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_V,
                         mDrawVEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1733,7 +1733,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0 && mGesturesEnabled;
             if (drawInverseVEnabled != mDrawInverseVEnabled) {
                 mDrawInverseVEnabled = drawInverseVEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_INVERSE_V,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_INVERSE_V,
                         mDrawInverseVEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1745,7 +1745,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawOEnabled != mDrawOEnabled) {
                 mDrawOEnabled = drawOEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_O,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_O,
                         mDrawOEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1757,7 +1757,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawMEnabled != mDrawMEnabled) {
                 mDrawMEnabled = drawMEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_M,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_M,
                         mDrawMEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1769,7 +1769,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawWEnabled != mDrawWEnabled) {
                 mDrawWEnabled = drawWEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_W,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_W,
                         mDrawWEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1781,7 +1781,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawSEnabled != mDrawSEnabled) {
                 mDrawSEnabled = drawSEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_S,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_S,
                         mDrawSEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1793,7 +1793,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawArrowLeftEnabled != mDrawArrowLeftEnabled) {
                 mDrawArrowLeftEnabled = drawArrowLeftEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_ARROW_LEFT,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_ARROW_LEFT,
                         mDrawArrowLeftEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1805,7 +1805,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0;
             if (drawArrowRightEnabled != mDrawArrowRightEnabled) {
                 mDrawArrowRightEnabled = drawArrowRightEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_DRAW_ARROW_RIGHT,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_DRAW_ARROW_RIGHT,
                         mDrawArrowRightEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1817,7 +1817,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0 && mGesturesEnabled;
             if (oneFingerSwipeUpEnabled != mOneFingerSwipeUpEnabled) {
                 mOneFingerSwipeUpEnabled = oneFingerSwipeUpEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_UP,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_UP,
                         mOneFingerSwipeUpEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1829,7 +1829,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0 && mGesturesEnabled;
             if (oneFingerSwipeRightEnabled != mOneFingerSwipeRightEnabled) {
                 mOneFingerSwipeRightEnabled = oneFingerSwipeRightEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_RIGHT,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_RIGHT,
                         mOneFingerSwipeRightEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1841,7 +1841,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0 && mGesturesEnabled;
             if (oneFingerSwipeDownEnabled != mOneFingerSwipeDownEnabled) {
                 mOneFingerSwipeDownEnabled = oneFingerSwipeDownEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_DOWN,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_DOWN,
                         mOneFingerSwipeDownEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1853,7 +1853,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0 && mGesturesEnabled;
             if (oneFingerSwipeLeftEnabled != mOneFingerSwipeLeftEnabled) {
                 mOneFingerSwipeLeftEnabled = oneFingerSwipeLeftEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_ONE_FINGER_SWIPE_LEFT,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_ONE_FINGER_SWIPE_LEFT,
                         mOneFingerSwipeLeftEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
@@ -1865,7 +1865,7 @@ public final class PowerManagerService extends SystemService
                     UserHandle.USER_CURRENT) > 0 && mGesturesEnabled;
             if (twoFingerSwipeEnabled != mTwoFingerSwipeEnabled) {
                 mTwoFingerSwipeEnabled = twoFingerSwipeEnabled;
-                mNativeWrapper.nativeSetParanoidFeature(POWER_FEATURE_TWO_FINGER_SWIPE,
+                mNativeWrapper.nativeSetMiLahainaFeature(POWER_FEATURE_TWO_FINGER_SWIPE,
                         mTwoFingerSwipeEnabled && mGesturesEnabled ? 1 : 0);
             }
         }
