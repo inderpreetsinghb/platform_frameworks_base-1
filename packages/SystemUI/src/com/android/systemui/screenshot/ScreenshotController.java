@@ -39,6 +39,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
+import android.app.ActivityTaskManager;
 import android.app.ExitTransitionCoordinator;
 import android.app.ExitTransitionCoordinator.ExitTransitionCallbacks;
 import android.app.ICompatCameraControlCallback;
@@ -50,20 +51,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Insets;
 import android.graphics.Rect;
+import android.hardware.camera2.CameraManager;
 import android.hardware.display.DisplayManager;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.AudioSystem;
+import android.media.MediaActionSound;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -103,6 +113,9 @@ import com.android.systemui.flags.Flags;
 import com.android.systemui.screenshot.ScreenshotController.SavedImageData.ActionTransition;
 import com.android.systemui.screenshot.TakeScreenshotService.RequestCallback;
 import com.android.systemui.settings.DisplayTracker;
+import com.android.systemui.shared.system.ActivityManagerWrapper;
+import com.android.systemui.shared.system.TaskStackChangeListener;
+import com.android.systemui.shared.system.TaskStackChangeListeners;
 import com.android.systemui.util.Assert;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -254,7 +267,7 @@ public class ScreenshotController {
     // From WizardManagerHelper.java
     private static final String SETTINGS_SECURE_USER_SETUP_COMPLETE = "user_setup_complete";
 
-    private static final int SCREENSHOT_CORNER_DEFAULT_TIMEOUT_MILLIS = 6000;
+    private static final int SCREENSHOT_CORNER_DEFAULT_TIMEOUT_MILLIS = 3000;
 
     private final WindowContext mContext;
     private final FeatureFlags mFlags;
@@ -271,6 +284,10 @@ public class ScreenshotController {
     private final WindowManager.LayoutParams mWindowLayoutParams;
     private final AccessibilityManager mAccessibilityManager;
     private final ListenableFuture<MediaPlayer> mCameraSound;
+    private final AudioManager mAudioManager;
+    private final Vibrator mVibrator;
+    private final CameraManager mCameraManager;
+    private int mCamsInUse = 0;
     private final ScrollCaptureClient mScrollCaptureClient;
     private final PhoneWindow mWindow;
     private final DisplayManager mDisplayManager;
@@ -292,6 +309,8 @@ public class ScreenshotController {
         respondToBack();
     };
 
+    private final FullScreenshotRunnable mFullScreenshotRunnable = new FullScreenshotRunnable();
+
     private ScreenshotView mScreenshotView;
     private final MessageContainerController mMessageContainerController;
     private Bitmap mScreenBitmap;
@@ -312,6 +331,38 @@ public class ScreenshotController {
                     | ActivityInfo.CONFIG_UI_MODE
                     | ActivityInfo.CONFIG_SCREEN_LAYOUT
                     | ActivityInfo.CONFIG_ASSETS_PATHS);
+
+    private ComponentName mTaskComponentName;
+    private PackageManager mPm;
+
+    private final TaskStackChangeListener mTaskListener = new TaskStackChangeListener() {
+        @Override
+        public void onTaskStackChanged() {
+            mBgExecutor.execute(() -> {
+                try {
+                    final ActivityTaskManager.RootTaskInfo focusedStack =
+                            ActivityTaskManager.getService().getFocusedRootTaskInfo();
+                    if (focusedStack != null && focusedStack.topActivity != null) {
+                        mTaskComponentName = focusedStack.topActivity;
+                    }
+                } catch (Exception e) {
+                    // do nothing
+                }
+            });
+        }
+    };
+
+    private String getForegroundAppLabel() {
+        if (mTaskComponentName != null) {
+            try {
+                final ActivityInfo ai = mPm.getActivityInfo(mTaskComponentName, 0);
+                return ai.applicationInfo.loadLabel(mPm).toString();
+            } catch (PackageManager.NameNotFoundException e) {
+                // do nothing
+            }
+        }
+        return null;
+    }
 
     @Inject
     ScreenshotController(
@@ -385,6 +436,13 @@ public class ScreenshotController {
         // Setup the Camera shutter sound
         mCameraSound = loadCameraSound();
 
+        // Grab system services needed for screenshot sound
+        mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
+        mVibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
+        mCameraManager = (CameraManager) mContext.getSystemService(Context.CAMERA_SERVICE);
+        mCameraManager.registerAvailabilityCallback(mCamCallback,
+                new Handler(Looper.getMainLooper()));
+
         mCopyBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -396,6 +454,15 @@ public class ScreenshotController {
         mContext.registerReceiver(mCopyBroadcastReceiver, new IntentFilter(
                         ClipboardOverlayController.COPY_OVERLAY_ACTION),
                 ClipboardOverlayController.SELF_PERMISSION, null, Context.RECEIVER_NOT_EXPORTED);
+
+        // Grab PackageManager
+        mPm = mContext.getPackageManager();
+
+        // Register task stack listener
+        TaskStackChangeListeners.getInstance().registerTaskStackListener(mTaskListener);
+
+        // Initialize current foreground package name
+        mTaskListener.onTaskStackChanged();
     }
 
     void handleScreenshot(ScreenshotData screenshot, Consumer<Uri> finisher,
@@ -533,6 +600,20 @@ public class ScreenshotController {
     void takeScreenshotFullscreen(ComponentName topComponent, Consumer<Uri> finisher,
             RequestCallback requestCallback) {
         Assert.isMainThread();
+        mScreenshotHandler.removeCallbacks(mFullScreenshotRunnable);
+        /**
+         * Do not let it run the finish callback, it'll reset the service
+         * connection and break the next screenshot.
+         */
+        mCurrentRequestCallback = null;
+        dismissScreenshot(SCREENSHOT_INTERACTION_TIMEOUT);
+        mFullScreenshotRunnable.setArgs(topComponent, finisher, requestCallback);
+        // Wait 50ms to make sure we are on new frame.
+        mScreenshotHandler.postDelayed(mFullScreenshotRunnable, 50);
+    }
+
+    void takeScreenshotFullscreenInternal(ComponentName topComponent, Consumer<Uri> finisher,
+            RequestCallback requestCallback) {
         mCurrentRequestCallback = requestCallback;
         takeScreenshotInternal(topComponent, finisher, getFullScreenRect());
     }
@@ -594,6 +675,7 @@ public class ScreenshotController {
         removeWindow();
         releaseMediaPlayer();
         releaseContext();
+        TaskStackChangeListeners.getInstance().unregisterTaskStackListener(mTaskListener);
         mBgExecutor.shutdownNow();
     }
 
@@ -671,8 +753,7 @@ public class ScreenshotController {
 
             @Override
             public void onTouchOutside() {
-                // TODO(159460485): Remove this when focus is handled properly in the system
-                setWindowFocusable(false);
+                dismissScreenshot(SCREENSHOT_DISMISSED_OTHER);
             }
         }, mActionExecutor, mFlags);
         mScreenshotView.setDefaultDisplay(mDisplayTracker.getDefaultDisplayId());
@@ -943,9 +1024,10 @@ public class ScreenshotController {
             mLongScreenshotHolder.setLongScreenshot(longScreenshot);
             mLongScreenshotHolder.setTransitionDestinationCallback(
                     (transitionDestination, onTransitionEnd) -> {
-                        mScreenshotView.startLongScreenshotTransition(
-                                transitionDestination, onTransitionEnd,
-                                longScreenshot);
+                            mScreenshotView.startLongScreenshotTransition(
+                                    transitionDestination, onTransitionEnd,
+                                    longScreenshot);
+            mLongScreenshotHolder.setForegroundAppName(getForegroundAppLabel());
                         // TODO: Do this via ActionIntentExecutor instead.
                         mContext.sendBroadcast(new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS));
                     }
@@ -1066,7 +1148,7 @@ public class ScreenshotController {
      */
     private void saveScreenshotAndToast(UserHandle owner, Consumer<Uri> finisher) {
         // Play the shutter sound to notify that we've taken a screenshot
-        playCameraSound();
+        playShutterSound();
 
         saveScreenshotInWorkerThread(
                 owner,
@@ -1110,7 +1192,7 @@ public class ScreenshotController {
         }
 
         // Play the shutter sound to notify that we've taken a screenshot
-        playCameraSound();
+        playShutterSound();
 
         if (DEBUG_ANIM) {
             Log.d(TAG, "starting post-screenshot animation");
@@ -1168,7 +1250,7 @@ public class ScreenshotController {
         mSaveInBgTask = new SaveImageInBackgroundTask(mContext, mFlags, mImageExporter,
                 mScreenshotSmartActions, data, getActionTransitionSupplier(),
                 mScreenshotNotificationSmartActionsProvider);
-        mSaveInBgTask.execute();
+        mSaveInBgTask.execute(getForegroundAppLabel());
     }
 
 
@@ -1374,6 +1456,69 @@ public class ScreenshotController {
                 public void onFinish() {
                 }
             };
+         }
+    }
+
+
+    private void playShutterSound() {
+       boolean playSound = readCameraSoundForced() && mCamsInUse > 0;
+        switch (mAudioManager.getRingerMode()) {
+            case AudioManager.RINGER_MODE_SILENT:
+                // do nothing
+                break;
+            case AudioManager.RINGER_MODE_VIBRATE:
+                if (mVibrator != null && mVibrator.hasVibrator()) {
+                    mVibrator.vibrate(VibrationEffect.createOneShot(50,
+                            VibrationEffect.DEFAULT_AMPLITUDE));
+                }
+                break;
+            case AudioManager.RINGER_MODE_NORMAL:
+                // in this case we want to play sound even if not forced on
+                playSound = true;
+                break;
+        }
+        // We want to play the shutter sound when it's either forced or
+        // when we use normal ringer mode
+        if (playSound && Settings.System.getIntForUser(mContext.getContentResolver(),
+                Settings.System.SCREENSHOT_SHUTTER_SOUND, 1, UserHandle.USER_CURRENT) == 1) {
+            playCameraSound();
+        }
+    }
+
+    private CameraManager.AvailabilityCallback mCamCallback =
+            new CameraManager.AvailabilityCallback() {
+        @Override
+        public void onCameraOpened(String cameraId, String packageId) {
+            mCamsInUse++;
+        }
+
+        @Override
+        public void onCameraClosed(String cameraId) {
+            mCamsInUse--;
+        }
+    };
+
+    private boolean readCameraSoundForced() {
+        return SystemProperties.getBoolean("audio.camerasound.force", false) ||
+                mContext.getResources().getBoolean(
+                        com.android.internal.R.bool.config_camera_sound_forced);
+    }
+
+    private class FullScreenshotRunnable implements Runnable {
+        ComponentName mTopComponent;
+        Consumer<Uri> mFinisher;
+        RequestCallback mRequestCallback;
+
+        public void setArgs(ComponentName topComponent, Consumer<Uri> finisher,
+                RequestCallback requestCallback) {
+            mTopComponent = topComponent;
+            mFinisher = finisher;
+            mRequestCallback = requestCallback;
+        }
+
+        @Override
+        public void run() {
+            takeScreenshotFullscreenInternal(mTopComponent, mFinisher, mRequestCallback);
         }
     }
 }

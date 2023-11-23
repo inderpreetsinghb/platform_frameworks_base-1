@@ -77,6 +77,7 @@ import android.transition.TransitionListenerAdapter;
 import android.transition.TransitionManager;
 import android.transition.TransitionSet;
 import android.transition.TransitionValues;
+import android.util.BoostFramework;
 import android.util.IndentingPrintWriter;
 import android.util.Log;
 import android.util.MathUtils;
@@ -618,6 +619,11 @@ public final class NotificationPanelViewController implements Dumpable {
     private int mGoneToDreamingTransitionTranslationY;
     private int mLockscreenToOccludedTransitionTranslationY;
 
+    /**
+     * For PanelView fling perflock call
+     */
+    private BoostFramework mPerf = null;
+
     private final Runnable mFlingCollapseRunnable = () -> fling(0, false /* expand */,
             mNextCollapseSpeedUpFactor, false /* expandBecauseOfFalsing */);
     private final Runnable mAnimateKeyguardBottomAreaInvisibleEndRunnable =
@@ -950,6 +956,7 @@ public final class NotificationPanelViewController implements Dumpable {
                 });
         mAlternateBouncerInteractor = alternateBouncerInteractor;
         dumpManager.registerDumpable(this);
+        mPerf = new BoostFramework();
     }
 
     private void unlockAnimationFinished() {
@@ -1017,13 +1024,6 @@ public final class NotificationPanelViewController implements Dumpable {
                 keyguardUserSwitcherView = (KeyguardUserSwitcherView) stub.inflate();
             }
         }
-
-        mKeyguardStatusBarViewController =
-                mKeyguardStatusBarViewComponentFactory.build(
-                                mKeyguardStatusBar,
-                                mNotificationPanelViewStateProvider)
-                        .getKeyguardStatusBarViewController();
-        mKeyguardStatusBarViewController.init();
 
         mNotificationContainerParent = mView.findViewById(R.id.notification_container_parent);
         updateViewControllers(
@@ -1177,6 +1177,13 @@ public final class NotificationPanelViewController implements Dumpable {
         mKeyguardStatusViewController.init();
         updateClockAppearance();
 
+        mKeyguardStatusBarViewController =
+                mKeyguardStatusBarViewComponentFactory.build(
+                                mKeyguardStatusBar,
+                                mNotificationPanelViewStateProvider)
+                        .getKeyguardStatusBarViewController();
+        mKeyguardStatusBarViewController.init();
+
         if (mKeyguardUserSwitcherController != null) {
             // Try to close the switcher so that callbacks are triggered if necessary.
             // Otherwise, NPV can get into a state where some of the views are still hidden
@@ -1285,6 +1292,15 @@ public final class NotificationPanelViewController implements Dumpable {
         keyguardStatusView = (KeyguardStatusView) mLayoutInflater.inflate(
                 R.layout.keyguard_status_view, mNotificationContainerParent, false);
         mNotificationContainerParent.addView(keyguardStatusView, statusIndex);
+
+        // Re-inflate the keyguard status bar.
+        statusIndex = mView.indexOfChild(mKeyguardStatusBar);
+        mView.removeView(mKeyguardStatusBar);
+        mKeyguardStatusBar = (KeyguardStatusBarView) mLayoutInflater.inflate(
+                R.layout.keyguard_status_bar, mView, false);
+        mView.addView(mKeyguardStatusBar);
+        mKeyguardStatusBar.setVisibility(isOnKeyguard() ? View.VISIBLE : View.INVISIBLE);
+
         // When it's reinflated, this is centered by default. If it shouldn't be, this will update
         // below when resources are updated.
         mStatusViewCentered = true;
@@ -2019,6 +2035,10 @@ public final class NotificationPanelViewController implements Dumpable {
                 animator.setDuration(mFixedDuration);
             }
         }
+        if (mPerf != null) {
+            String currentPackage = mView.getContext().getPackageName();
+            mPerf.perfHint(BoostFramework.VENDOR_HINT_SCROLL_BOOST, currentPackage, -1, BoostFramework.Scroll.PANEL_VIEW);
+        }
         animator.addListener(new AnimatorListenerAdapter() {
             private boolean mCancelled;
 
@@ -2031,11 +2051,17 @@ public final class NotificationPanelViewController implements Dumpable {
 
             @Override
             public void onAnimationCancel(Animator animation) {
+                if (mPerf != null) {
+                    mPerf.perfLockRelease();
+                }
                 mCancelled = true;
             }
 
             @Override
             public void onAnimationEnd(Animator animation) {
+                if (mPerf != null) {
+                    mPerf.perfLockRelease();
+                }
                 if (shouldSpringBack && !mCancelled) {
                     // After the shade is flung open to an overscrolled state, spring back
                     // the shade by reducing section padding to 0.

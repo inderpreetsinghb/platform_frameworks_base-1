@@ -48,7 +48,6 @@
         <item><xliff:g id="id">@string/status_bar_cast</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_screen_record</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_vpn</xliff:g></item>
-        <item><xliff:g id="id">@string/status_bar_bluetooth</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_camera</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_microphone</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_location</xliff:g></item>
@@ -56,6 +55,7 @@
         <item><xliff:g id="id">@string/status_bar_volume</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_zen</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_ethernet</xliff:g></item>
+        <item><xliff:g id="id">@string/status_bar_bluetooth</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_wifi</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_hotspot</xliff:g></item>
         <item><xliff:g id="id">@string/status_bar_mobile</xliff:g></item>
@@ -4516,13 +4516,13 @@
     <string name="config_mediaProjectionPermissionDialogComponent" translatable="false">com.android.systemui/com.android.systemui.media.MediaProjectionPermissionActivity</string>
 
     <!-- Corner radius of system dialogs -->
-    <dimen name="config_dialogCornerRadius">2dp</dimen>
+    <dimen name="config_dialogCornerRadius">28dp</dimen>
     <!-- Corner radius of system buttons -->
-    <dimen name="config_buttonCornerRadius">@dimen/control_corner_material</dimen>
+    <dimen name="config_buttonCornerRadius">4dp</dimen>
     <!-- Corner radius for bottom sheet system dialogs -->
-    <dimen name="config_bottomDialogCornerRadius">@dimen/config_dialogCornerRadius</dimen>
+    <dimen name="config_bottomDialogCornerRadius">16dp</dimen>
     <!-- Corner radius of system progress bars -->
-    <dimen name="config_progressBarCornerRadius">@dimen/progress_bar_corner_material</dimen>
+    <dimen name="config_progressBarCornerRadius">1000dp</dimen>
     <!-- Controls whether system buttons use all caps for text -->
     <bool name="config_buttonTextAllCaps">true</bool>
     <!-- Name of the font family used for system surfaces where the font should use medium weight -->
