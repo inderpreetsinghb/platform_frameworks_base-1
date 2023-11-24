@@ -16,6 +16,41 @@
 -->
 <resources>
 
+    <!-- Build properties from a GMS certified device against current platform SPL level -->
+    <string-array name="config_certifiedBuildProperties" translatable="false">
+      <!-- 
+        <item>Build.DEVICE</item>
+        <item>Build.PRODUCT</item>
+        <item>Build.MODEL</item>
+        <item>Build.FINGERPRINT</item>
+      -->
+    </string-array>
+
+    <!-- Build fingerprint from stock ROM -->
+    <string name="config_stockFingerprint" translatable="false"></string>
+
+    <!-- Device model (Build.MODEL) to spoof for netflix, if not empty -->
+    <string name="config_netflixSpoofModel" translatable="false"></string>
+
+    <!-- The list of components which should be automatically disabled for a specific device.
+         Note: this MUST not be used to randomly disable components, ask for approval first! -->
+    <string-array name="config_deviceDisabledComponents" translatable="false">
+    </string-array>
+
+    <!-- The list of components which should be automatically disabled for all devices. -->
+    <string-array name="config_globallyDisabledComponents" translatable="false">
+    </string-array>
+
+    <!-- The list of components which should be forced to be enabled. -->
+    <string-array name="config_forceEnabledComponents" translatable="false">
+    </string-array>
+
+    <!-- Whether to show WiFi/Hotspot standard -->
+    <bool name="config_show_network_standard">true</bool>
+
+    <!-- Whether usage of the proximity sensor during doze is supported -->
+    <bool name="config_doze_proximity_sensor_supported">true</bool>
+
     <!-- Key codes of gestures. If the gesture is not supported set it to 0. -->
     <integer name="config_doubleTapKeyCode">0</integer>
     <integer name="config_singleTapKeyCode">0</integer>
@@ -61,40 +96,5 @@
 
     <!-- KeaHandler to intercept inputs on screen off. -->
     <bool name="config_enableKeyHandler">false</bool>
-
-    <!-- Build properties from a GMS certified device against current platform SPL level -->
-    <string-array name="config_certifiedBuildProperties" translatable="false">
-      <!-- 
-        <item>Build.DEVICE</item>
-        <item>Build.PRODUCT</item>
-        <item>Build.MODEL</item>
-        <item>Build.FINGERPRINT</item>
-      -->
-    </string-array>
-
-    <!-- Build fingerprint from stock ROM -->
-    <string name="config_stockFingerprint" translatable="false"></string>
-
-    <!-- Device model (Build.MODEL) to spoof for netflix, if not empty -->
-    <string name="config_netflixSpoofModel" translatable="false"></string>
-
-    <!-- The list of components which should be automatically disabled for a specific device.
-         Note: this MUST not be used to randomly disable components, ask for approval first! -->
-    <string-array name="config_deviceDisabledComponents" translatable="false">
-    </string-array>
-
-    <!-- The list of components which should be automatically disabled for all devices. -->
-    <string-array name="config_globallyDisabledComponents" translatable="false">
-    </string-array>
-
-    <!-- The list of components which should be forced to be enabled. -->
-    <string-array name="config_forceEnabledComponents" translatable="false">
-    </string-array>
-
-    <!-- Whether to show WiFi/Hotspot standard -->
-    <bool name="config_show_network_standard">true</bool>
-
-    <!-- Whether usage of the proximity sensor during doze is supported -->
-    <bool name="config_doze_proximity_sensor_supported">true</bool>
 
 </resources>

@@ -4847,7 +4847,6 @@ public final class PowerManagerService extends SystemService
             pw.println("  mScreenBrightnessMinimum=" + mScreenBrightnessMinimum);
             pw.println("  mScreenBrightnessMaximum=" + mScreenBrightnessMaximum);
             pw.println("  mScreenBrightnessDefault=" + mScreenBrightnessDefault);
-            pw.println("  mIsVrModeEnabled=" + mIsVrModeEnabled);
             pw.println("  mGesturesEnabled=" + mGesturesEnabled);
             pw.println("  mDoubleTapEnabled=" + mDoubleTapEnabled);
             pw.println("  mSingleTapEnabled=" + mSingleTapEnabled);
@@ -4864,6 +4863,7 @@ public final class PowerManagerService extends SystemService
             pw.println("  mOneFingerSwipeDownEnabled=" + mOneFingerSwipeDownEnabled);
             pw.println("  mOneFingerSwipeLeftEnabled=" + mOneFingerSwipeLeftEnabled);
             pw.println("  mTwoFingerSwipeEnabled=" + mTwoFingerSwipeEnabled);
+            pw.println("  mIsVrModeEnabled=" + mIsVrModeEnabled);
             pw.println("  mForegroundProfile=" + mForegroundProfile);
             pw.println("  mUserId=" + mUserId);
 
@@ -5271,7 +5271,6 @@ public final class PowerManagerService extends SystemService
             proto.write(
                     PowerServiceSettingsAndConfigurationDumpProto.IS_DOUBLE_TAP_WAKE_ENABLED,
                     mDoubleTapEnabled);
-
             proto.write(
                     PowerServiceSettingsAndConfigurationDumpProto.IS_VR_MODE_ENABLED,
                     mIsVrModeEnabled);

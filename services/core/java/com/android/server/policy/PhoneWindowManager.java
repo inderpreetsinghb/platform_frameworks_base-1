@@ -2206,7 +2206,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         initKeyCombinationRules();
         initSingleKeyGestureRules();
         mSideFpsEventHandler = new SideFpsEventHandler(mContext, mHandler, mPowerManager);
-        boolean enableKeyHandler = mContext.getResources().
+        boolean enableKeyHandler = context.getResources().
                 getBoolean(com.android.internal.R.bool.config_enableKeyHandler);
         if (enableKeyHandler) {
             mKeyHandler = new KeyHandler(mContext);
