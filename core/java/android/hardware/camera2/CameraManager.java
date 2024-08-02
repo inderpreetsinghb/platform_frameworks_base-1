@@ -2286,19 +2286,10 @@ public final class CameraManager {
             String[] cameraIds = null;
             boolean exposeAuxCamera = Camera.shouldExposeAuxCamera();
             int size = exposeAuxCamera ? mDeviceStatus.size() : 2;
-            int idCount = 0;
-            for (int i = 0; i < size; i++) {
-                int status = mDeviceStatus.valueAt(i);
-                DeviceCameraInfo info = mDeviceStatus.keyAt(i);
-                if (status == ICameraServiceListener.STATUS_NOT_PRESENT
-                        || status == ICameraServiceListener.STATUS_ENUMERATING
-                        || shouldHideCamera(deviceId, devicePolicy, info)) {
-                    continue;
-                }
-                cameraIds.add(info.mCameraId);
+            if (mDeviceStatus.size() < size) {
+                size = mDeviceStatus.size();
             }
-            cameraIds = new String[idCount];
-            idCount = 0;
+            List<String> cameraIdList = new ArrayList<>();
             for (int i = 0; i < size; i++) {
                 int status = mDeviceStatus.valueAt(i);
                 if (status == ICameraServiceListener.STATUS_NOT_PRESENT
