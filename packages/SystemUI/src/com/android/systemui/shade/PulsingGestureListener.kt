@@ -111,12 +111,12 @@ class PulsingGestureListener @Inject constructor(
                 customSingleTapEnabled = gesturesEnabled && (singleTap == 1 || singleTap == 2)
             }
         }
-        systemSettings.registerContentObserverForUser(
-                GESTURE_DOUBLE_TAP, settingsObserver, UserHandle.USER_ALL)
-        systemSettings.registerContentObserverForUser(
-                GESTURE_SINGLE_TAP, settingsObserver, UserHandle.USER_ALL)
-        systemSettings.registerContentObserverForUser(
-                GESTURES_ENABLED, settingsObserver, UserHandle.USER_ALL)
+        systemSettings.registerContentObserverSync(
+                GESTURE_DOUBLE_TAP, settingsObserver)
+        systemSettings.registerContentObserverSync(
+                GESTURE_SINGLE_TAP, settingsObserver)
+        systemSettings.registerContentObserverSync(
+                GESTURES_ENABLED, settingsObserver)
         settingsObserver.update()
 
         dumpManager.registerDumpable(this)
