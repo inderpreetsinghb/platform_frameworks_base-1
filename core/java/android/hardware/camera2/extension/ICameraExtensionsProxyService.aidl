@@ -20,13 +20,11 @@ import android.hardware.camera2.extension.IPreviewExtenderImpl;
 import android.hardware.camera2.extension.IImageCaptureExtenderImpl;
 import android.hardware.camera2.extension.IInitializeSessionCallback;
 
-import android.os.IBinder;
-
 /** @hide */
 interface ICameraExtensionsProxyService
 {
-    boolean registerClient(in IBinder token);
-    void unregisterClient(in IBinder token);
+    long registerClient();
+    void unregisterClient(long clientId);
     boolean advancedExtensionsSupported();
     void initializeSession(in IInitializeSessionCallback cb);
     void releaseSession();

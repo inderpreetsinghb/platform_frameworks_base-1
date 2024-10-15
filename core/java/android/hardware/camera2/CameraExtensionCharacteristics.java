@@ -34,7 +34,6 @@ import android.hardware.camera2.impl.CameraExtensionUtils;
 import android.hardware.camera2.impl.CameraMetadataNative;
 import android.hardware.camera2.params.ExtensionSessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.os.Binder;
 import android.os.ConditionVariable;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -49,6 +48,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -236,10 +236,9 @@ public final class CameraExtensionCharacteristics {
         private static final CameraExtensionManagerGlobal GLOBAL_CAMERA_MANAGER =
                 new CameraExtensionManagerGlobal();
         private final Object mLock = new Object();
-        private final int PROXY_SERVICE_DELAY_MS = 2000;
+        private final int PROXY_SERVICE_DELAY_MS = 1000;
         private InitializerFuture mInitFuture = null;
         private ServiceConnection mConnection = null;
-        private int mConnectionCount = 0;
         private ICameraExtensionsProxyService mProxy = null;
         private boolean mSupportsAdvancedExtensions = false;
 
@@ -248,15 +247,6 @@ public final class CameraExtensionCharacteristics {
 
         public static CameraExtensionManagerGlobal get() {
             return GLOBAL_CAMERA_MANAGER;
-        }
-
-        private void releaseProxyConnectionLocked(Context ctx) {
-            if (mConnection != null ) {
-                ctx.unbindService(mConnection);
-                mConnection = null;
-                mProxy = null;
-                mConnectionCount = 0;
-            }
         }
 
         private void connectToProxyLocked(Context ctx) {
@@ -280,6 +270,7 @@ public final class CameraExtensionCharacteristics {
                 mConnection = new ServiceConnection() {
                     @Override
                     public void onServiceDisconnected(ComponentName component) {
+                        mInitFuture.setStatus(false);
                         mConnection = null;
                         mProxy = null;
                     }
@@ -355,46 +346,31 @@ public final class CameraExtensionCharacteristics {
             }
         }
 
-        public boolean registerClient(Context ctx, IBinder token) {
+        public long registerClient(Context ctx) {
             synchronized (mLock) {
-                boolean ret = false;
                 connectToProxyLocked(ctx);
-                if (mProxy == null) {
-                    return false;
+                if (mProxy != null) {
+                    try {
+                        return mProxy.registerClient();
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "Failed to initialize extension! Extension service does "
+                                + " not respond!");
+                        return -1;
+                    }
+                } else {
+                    return -1;
                 }
-                mConnectionCount++;
-
-                try {
-                    ret = mProxy.registerClient(token);
-                } catch (RemoteException e) {
-                    Log.e(TAG, "Failed to initialize extension! Extension service does "
-                            + " not respond!");
-                }
-                if (!ret) {
-                    mConnectionCount--;
-                }
-
-                if (mConnectionCount <= 0) {
-                    releaseProxyConnectionLocked(ctx);
-                }
-
-                return ret;
             }
         }
 
-        public void unregisterClient(Context ctx, IBinder token) {
+        public void unregisterClient(long clientId) {
             synchronized (mLock) {
                 if (mProxy != null) {
                     try {
-                        mProxy.unregisterClient(token);
+                        mProxy.unregisterClient(clientId);
                     } catch (RemoteException e) {
                         Log.e(TAG, "Failed to de-initialize extension! Extension service does"
                                 + " not respond!");
-                    } finally {
-                        mConnectionCount--;
-                        if (mConnectionCount <= 0) {
-                            releaseProxyConnectionLocked(ctx);
-                        }
                     }
                 }
             }
@@ -462,15 +438,15 @@ public final class CameraExtensionCharacteristics {
     /**
      * @hide
      */
-    public static boolean registerClient(Context ctx, IBinder token) {
-        return CameraExtensionManagerGlobal.get().registerClient(ctx, token);
+    public static long registerClient(Context ctx) {
+        return CameraExtensionManagerGlobal.get().registerClient(ctx);
     }
 
     /**
      * @hide
      */
-    public static void unregisterClient(Context ctx, IBinder token) {
-        CameraExtensionManagerGlobal.get().unregisterClient(ctx, token);
+    public static void unregisterClient(long clientId) {
+        CameraExtensionManagerGlobal.get().unregisterClient(clientId);
     }
 
     /**
@@ -588,9 +564,8 @@ public final class CameraExtensionCharacteristics {
      */
     public @NonNull List<Integer> getSupportedExtensions() {
         ArrayList<Integer> ret = new ArrayList<>();
-        final IBinder token = new Binder(TAG + "#getSupportedExtensions:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             return Collections.unmodifiableList(ret);
         }
 
@@ -601,7 +576,7 @@ public final class CameraExtensionCharacteristics {
                 }
             }
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
 
         return Collections.unmodifiableList(ret);
@@ -624,9 +599,8 @@ public final class CameraExtensionCharacteristics {
      * supported device-specific extension
      */
     public boolean isPostviewAvailable(@Extension int extension) {
-        final IBinder token = new Binder(TAG + "#isPostviewAvailable:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -649,7 +623,7 @@ public final class CameraExtensionCharacteristics {
             Log.e(TAG, "Failed to query the extension for postview availability! Extension "
                     + "service does not respond!");
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
 
         return false;
@@ -682,9 +656,9 @@ public final class CameraExtensionCharacteristics {
     @NonNull
     public List<Size> getPostviewSupportedSizes(@Extension int extension,
             @NonNull Size captureSize, int format) {
-        final IBinder token = new Binder(TAG + "#getPostviewSupportedSizes:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -745,7 +719,7 @@ public final class CameraExtensionCharacteristics {
                     + "service does not respond!");
             return Collections.emptyList();
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
     }
 
@@ -782,9 +756,8 @@ public final class CameraExtensionCharacteristics {
         // TODO: Revisit this code once the Extension preview processor output format
         //       ambiguity is resolved in b/169799538.
 
-        final IBinder token = new Binder(TAG + "#getExtensionSupportedSizes:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -814,7 +787,7 @@ public final class CameraExtensionCharacteristics {
                     + " not respond!");
             return new ArrayList<>();
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
     }
 
@@ -841,9 +814,8 @@ public final class CameraExtensionCharacteristics {
     public @NonNull
     List<Size> getExtensionSupportedSizes(@Extension int extension, int format) {
         try {
-            final IBinder token = new Binder(TAG + "#getExtensionSupportedSizes:" + mCameraId);
-            boolean success = registerClient(mContext, token);
-            if (!success) {
+            long clientId = registerClient(mContext);
+            if (clientId < 0) {
                 throw new IllegalArgumentException("Unsupported extensions");
             }
 
@@ -895,7 +867,7 @@ public final class CameraExtensionCharacteristics {
                     }
                 }
             } finally {
-                unregisterClient(mContext, token);
+                unregisterClient(clientId);
             }
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to query the extension supported sizes! Extension service does"
@@ -916,6 +888,7 @@ public final class CameraExtensionCharacteristics {
      * @param format            device-specific extension output format
      * @return the range of estimated minimal and maximal capture latency in milliseconds
      * or null if no capture latency info can be provided
+     *
      * @throws IllegalArgumentException in case of format different from {@link ImageFormat#JPEG} /
      *                                  {@link ImageFormat#YUV_420_888}; or unsupported extension.
      */
@@ -930,9 +903,8 @@ public final class CameraExtensionCharacteristics {
                 throw new IllegalArgumentException("Unsupported format: " + format);
         }
 
-        final IBinder token = new Binder(TAG + "#getEstimatedCaptureLatencyRangeMillis:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -980,7 +952,7 @@ public final class CameraExtensionCharacteristics {
             Log.e(TAG, "Failed to query the extension capture latency! Extension service does"
                     + " not respond!");
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
 
         return null;
@@ -996,9 +968,8 @@ public final class CameraExtensionCharacteristics {
      * @throws IllegalArgumentException in case of an unsupported extension.
      */
     public boolean isCaptureProcessProgressAvailable(@Extension int extension) {
-        final IBinder token = new Binder(TAG + "#isCaptureProcessProgressAvailable:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -1021,7 +992,7 @@ public final class CameraExtensionCharacteristics {
             Log.e(TAG, "Failed to query the extension progress callbacks! Extension service does"
                     + " not respond!");
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
 
         return false;
@@ -1042,9 +1013,8 @@ public final class CameraExtensionCharacteristics {
      */
     @NonNull
     public Set<CaptureRequest.Key> getAvailableCaptureRequestKeys(@Extension int extension) {
-        final IBinder token = new Binder(TAG + "#getAvailableCaptureRequestKeys:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -1063,11 +1033,10 @@ public final class CameraExtensionCharacteristics {
             } else {
                 Pair<IPreviewExtenderImpl, IImageCaptureExtenderImpl> extenders =
                         initializeExtension(extension);
-                extenders.second.onInit(token, mCameraId,
-                        mCharacteristicsMapNative.get(mCameraId));
+                extenders.second.onInit(mCameraId, mCharacteristicsMapNative.get(mCameraId));
                 extenders.second.init(mCameraId, mCharacteristicsMapNative.get(mCameraId));
                 captureRequestMeta = extenders.second.getAvailableCaptureRequestKeys();
-                extenders.second.onDeInit(token);
+                extenders.second.onDeInit();
             }
 
             if (captureRequestMeta != null) {
@@ -1098,7 +1067,7 @@ public final class CameraExtensionCharacteristics {
         } catch (RemoteException e) {
             throw new IllegalStateException("Failed to query the available capture request keys!");
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
 
         return Collections.unmodifiableSet(ret);
@@ -1123,9 +1092,8 @@ public final class CameraExtensionCharacteristics {
      */
     @NonNull
     public Set<CaptureResult.Key> getAvailableCaptureResultKeys(@Extension int extension) {
-        final IBinder token = new Binder(TAG + "#getAvailableCaptureResultKeys:" + mCameraId);
-        boolean success = registerClient(mContext, token);
-        if (!success) {
+        long clientId = registerClient(mContext);
+        if (clientId < 0) {
             throw new IllegalArgumentException("Unsupported extensions");
         }
 
@@ -1143,11 +1111,10 @@ public final class CameraExtensionCharacteristics {
             } else {
                 Pair<IPreviewExtenderImpl, IImageCaptureExtenderImpl> extenders =
                         initializeExtension(extension);
-                extenders.second.onInit(token, mCameraId,
-                        mCharacteristicsMapNative.get(mCameraId));
+                extenders.second.onInit(mCameraId, mCharacteristicsMapNative.get(mCameraId));
                 extenders.second.init(mCameraId, mCharacteristicsMapNative.get(mCameraId));
                 captureResultMeta = extenders.second.getAvailableCaptureResultKeys();
-                extenders.second.onDeInit(token);
+                extenders.second.onDeInit();
             }
 
             if (captureResultMeta != null) {
@@ -1159,7 +1126,7 @@ public final class CameraExtensionCharacteristics {
                 }
                 CameraCharacteristics resultChars = new CameraCharacteristics(captureResultMeta);
                 Object crKey = CaptureResult.Key.class;
-                Class<CaptureResult.Key<?>> crKeyTyped = (Class<CaptureResult.Key<?>>) crKey;
+                Class<CaptureResult.Key<?>> crKeyTyped = (Class<CaptureResult.Key<?>>)crKey;
 
                 ret.addAll(resultChars.getAvailableKeyList(CaptureResult.class, crKeyTyped,
                         resultKeys, /*includeSynthetic*/ true));
@@ -1178,7 +1145,7 @@ public final class CameraExtensionCharacteristics {
         } catch (RemoteException e) {
             throw new IllegalStateException("Failed to query the available capture result keys!");
         } finally {
-            unregisterClient(mContext, token);
+            unregisterClient(clientId);
         }
 
         return Collections.unmodifiableSet(ret);

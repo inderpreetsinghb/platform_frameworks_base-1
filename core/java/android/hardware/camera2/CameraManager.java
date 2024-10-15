@@ -32,7 +32,6 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Point;
 import android.hardware.CameraExtensionSessionStats;
-import android.hardware.CameraIdRemapping;
 import android.hardware.CameraStatus;
 import android.hardware.ICameraService;
 import android.hardware.ICameraServiceListener;
@@ -71,7 +70,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -134,17 +132,14 @@ public final class CameraManager {
     /**
      * Enable physical camera availability callbacks when the logical camera is unavailable
      *
-     * <p>Previously once a logical camera becomes unavailable, no
-     * {@link AvailabilityCallback#onPhysicalCameraAvailable} or
-     * {@link AvailabilityCallback#onPhysicalCameraUnavailable} will
-     * be called until the logical camera becomes available again. The
-     * results in the app opening the logical camera not able to
-     * receive physical camera availability change.</p>
+     * <p>Previously once a logical camera becomes unavailable, no {@link
+     * #onPhysicalCameraAvailable} or {@link #onPhysicalCameraUnavailable} will be called until
+     * the logical camera becomes available again. The results in the app opening the logical
+     * camera not able to receive physical camera availability change.</p>
      *
-     * <p>With this change, the {@link
-     * AvailabilityCallback#onPhysicalCameraAvailable} and {@link
-     * AvailabilityCallback#onPhysicalCameraUnavailable} can still be
-     * called while the logical camera is unavailable.  </p>
+     * <p>With this change, the {@link #onPhysicalCameraAvailable} and {@link
+     * #onPhysicalCameraUnavailable} can still be called while the logical camera is unavailable.
+     * </p>
      */
     @ChangeId
     @EnabledSince(targetSdkVersion = android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -186,20 +181,22 @@ public final class CameraManager {
             boolean folded = ArrayUtils.contains(mFoldedDeviceStates, state);
 
             mFoldedDeviceState = folded;
-            Iterator<WeakReference<DeviceStateListener>> it = mDeviceStateListeners.iterator();
-            while(it.hasNext()) {
-                DeviceStateListener callback = it.next().get();
+            ArrayList<WeakReference<DeviceStateListener>> invalidListeners = new ArrayList<>();
+            for (WeakReference<DeviceStateListener> listener : mDeviceStateListeners) {
+                DeviceStateListener callback = listener.get();
                 if (callback != null) {
                     callback.onDeviceStateChanged(folded);
                 } else {
-                    it.remove();
+                    invalidListeners.add(listener);
                 }
+            }
+            if (!invalidListeners.isEmpty()) {
+                mDeviceStateListeners.removeAll(invalidListeners);
             }
         }
 
         public synchronized void addDeviceStateListener(DeviceStateListener listener) {
             listener.onDeviceStateChanged(mFoldedDeviceState);
-            mDeviceStateListeners.removeIf(l -> l.get() == null);
             mDeviceStateListeners.add(new WeakReference<>(listener));
         }
 
@@ -1734,17 +1731,6 @@ public final class CameraManager {
     }
 
     /**
-     * Remaps Camera Ids in the CameraService.
-     *
-     * @hide
-    */
-    @RequiresPermission(android.Manifest.permission.CAMERA_INJECT_EXTERNAL_CAMERA)
-    public void remapCameraIds(@NonNull CameraIdRemapping cameraIdRemapping)
-            throws CameraAccessException, SecurityException, IllegalArgumentException {
-        CameraManagerGlobal.get().remapCameraIds(cameraIdRemapping);
-    }
-
-    /**
      * Reports {@link CameraExtensionSessionStats} to the {@link ICameraService} to be logged for
      * currently active session. Validation is done downstream.
      *
@@ -1776,7 +1762,7 @@ public final class CameraManager {
             implements IBinder.DeathRecipient {
 
         private static final String TAG = "CameraManagerGlobal";
-        private static final boolean DEBUG = false;
+        private final boolean DEBUG = false;
 
         private final int CAMERA_SERVICE_RECONNECT_DELAY_MS = 1000;
 
@@ -1816,13 +1802,6 @@ public final class CameraManager {
                 new ArrayMap<TorchCallback, Executor>();
 
         private final Object mLock = new Object();
-
-        /**
-         * The active CameraIdRemapping. This will be used to refresh the cameraIdRemapping state
-         * in the CameraService every time we connect to it, including when the CameraService
-         * Binder dies and we reconnect to it.
-         */
-        @Nullable private CameraIdRemapping mActiveCameraIdRemapping;
 
         // Access only through getCameraService to deal with binder death
         private ICameraService mCameraService;
@@ -1966,46 +1945,23 @@ public final class CameraManager {
             } catch (RemoteException e) {
                 // Camera service died in all probability
             }
-
-            if (mActiveCameraIdRemapping != null) {
-                try {
-                    cameraService.remapCameraIds(mActiveCameraIdRemapping);
-                } catch (ServiceSpecificException e) {
-                    // Unexpected failure, ignore and continue.
-                    Log.e(TAG, "Unable to remap camera Ids in the camera service");
-                } catch (RemoteException e) {
-                    // Camera service died in all probability
-                }
-            }
-        }
-
-        /** Updates the cameraIdRemapping state in the CameraService. */
-        public void remapCameraIds(@NonNull CameraIdRemapping cameraIdRemapping)
-                throws CameraAccessException, SecurityException {
-            synchronized (mLock) {
-                ICameraService cameraService = getCameraService();
-                if (cameraService == null) {
-                    throw new CameraAccessException(
-                            CameraAccessException.CAMERA_DISCONNECTED,
-                            "Camera service is currently unavailable.");
-                }
-
-                try {
-                    cameraService.remapCameraIds(cameraIdRemapping);
-                    mActiveCameraIdRemapping = cameraIdRemapping;
-                } catch (ServiceSpecificException e) {
-                    throwAsPublicException(e);
-                } catch (RemoteException e) {
-                    throw new CameraAccessException(
-                            CameraAccessException.CAMERA_DISCONNECTED,
-                            "Camera service is currently unavailable.");
-                }
-            }
         }
 
         private String[] extractCameraIdListLocked() {
             String[] cameraIds = null;
-            boolean exposeAuxCamera = shouldExposeAuxCamera();
+            boolean exposeAuxCamera = false;
+            String packageName = ActivityThread.currentOpPackageName();
+            String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
+            if (packageList.length() > 0) {
+                TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
+                splitter.setString(packageList);
+                for (String str : splitter) {
+                    if (packageName.equals(str)) {
+                        exposeAuxCamera = true;
+                        break;
+                    }
+                }
+            }
             int idCount = 0;
             for (int i = 0; i < mDeviceStatus.size(); i++) {
                 if(!exposeAuxCamera && (i == 2)) break;
@@ -2083,15 +2039,6 @@ public final class CameraManager {
                         }
                     }});
 
-        }
-
-        private static boolean shouldExposeAuxCamera() {
-            String packageName = ActivityThread.currentOpPackageName();
-            String[] packageList = SystemProperties.get("vendor.camera.aux.packagelist").split(",");
-            if (DEBUG) {
-                Log.d(TAG, "shouldExposeAuxCamera: packageName=" + packageName);
-            }
-            return packageName == null || Arrays.asList(packageList).contains(packageName);
         }
 
         public static boolean cameraStatusesContains(CameraStatus[] cameraStatuses, String id) {
@@ -2294,7 +2241,20 @@ public final class CameraManager {
                 /* Force to expose only two cameras
                  * if the package name does not falls in this bucket
                  */
-                if (!shouldExposeAuxCamera() && (Integer.parseInt(cameraId) >= 2)) {
+                boolean exposeAuxCamera = false;
+                String packageName = ActivityThread.currentOpPackageName();
+                String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
+                if (packageList.length() > 0) {
+                    TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
+                    splitter.setString(packageList);
+                    for (String str : splitter) {
+                        if (packageName.equals(str)) {
+                            exposeAuxCamera = true;
+                            break;
+                        }
+                    }
+                }
+                if (exposeAuxCamera == false && (Integer.parseInt(cameraId) >= 2)) {
                     throw new IllegalArgumentException("invalid cameraId");
                 }
 
@@ -2569,7 +2529,21 @@ public final class CameraManager {
             /* Force to ignore the last mono/aux camera status update
              * if the package name does not falls in this bucket
              */
-            if (!shouldExposeAuxCamera()) {
+            boolean exposeMonoCamera = false;
+            String packageName = ActivityThread.currentOpPackageName();
+            String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
+            if (packageList.length() > 0) {
+                TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
+                splitter.setString(packageList);
+                for (String str : splitter) {
+                    if (packageName.equals(str)) {
+                        exposeMonoCamera = true;
+                        break;
+                    }
+                }
+            }
+
+            if (exposeMonoCamera == false) {
                 if (Integer.parseInt(id) >= 2) {
                     Log.w(TAG, "[soar.cts] ignore the status update of camera: " + id);
                     return;
@@ -2725,7 +2699,21 @@ public final class CameraManager {
             /* Force to ignore the aux or composite camera torch status update
              * if the package name does not falls in this bucket
              */
-            if (!shouldExposeAuxCamera()) {
+            boolean exposeMonoCamera = false;
+            String packageName = ActivityThread.currentOpPackageName();
+            String packageList = SystemProperties.get("vendor.camera.aux.packagelist");
+            if (packageList.length() > 0) {
+                TextUtils.StringSplitter splitter = new TextUtils.SimpleStringSplitter(',');
+                splitter.setString(packageList);
+                for (String str : splitter) {
+                    if (packageName.equals(str)) {
+                        exposeMonoCamera = true;
+                        break;
+                    }
+                }
+            }
+
+            if (exposeMonoCamera == false) {
                 if (Integer.parseInt(id) >= 2) {
                     Log.w(TAG, "ignore the torch status update of camera: " + id);
                     return;
