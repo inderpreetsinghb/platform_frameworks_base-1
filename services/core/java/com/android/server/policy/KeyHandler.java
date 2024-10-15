@@ -573,12 +573,12 @@ public class KeyHandler {
                 if (mPowerManager.isInteractive()) {
                     return;
                 }
-                wakeUp();
+                mPowerManager.wakeUp(SystemClock.uptimeMillis());
                 handled = true;
                 vibrate = false;
                 break;
             case DIALER:
-                wakeUp();
+                mPowerManager.wakeUp(SystemClock.uptimeMillis());
                 if (isKeyguardShowing()) {
                     dismissKeyguard();
                 }
@@ -618,10 +618,6 @@ public class KeyHandler {
         }
 
         doHapticFeedback(handled, vibrate);
-    }
-
-    private void wakeUp() {
-        mPowerManager.wakeUp(SystemClock.uptimeMillis(), PowerManager.WAKE_REASON_GESTURE, TAG);
     }
 
     private void acquireGestureWakeLock() {
