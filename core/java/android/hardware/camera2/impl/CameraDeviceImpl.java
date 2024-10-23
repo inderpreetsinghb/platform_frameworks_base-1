@@ -98,8 +98,6 @@ public class CameraDeviceImpl extends CameraDevice
     private static final int REQUEST_ID_NONE = -1;
     private int customOpMode = 0;
 
-    private int customOpMode = 0;
-
     /**
      * Starting {@link Build.VERSION_CODES#VANILLA_ICE_CREAM},
      * {@link #isSessionConfigurationSupported} also checks for compatibility of session parameters
